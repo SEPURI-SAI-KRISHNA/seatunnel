@@ -5,6 +5,13 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta SQL: FORMATDATETIME and FROM_UNIXTIME render month and weekday names in English
+
+- **Behavior change: the text produced by these two functions no longer follows the worker's default locale**
+  - **Description**: `FORMATDATETIME` and `FROM_UNIXTIME` built their formatter with `DateTimeFormatter.ofPattern(format)`, which captures the JVM default locale. Any pattern letter that renders text rather than digits (`MMM`, `MMMM`, `EEE`, `EEEE`, `a`, `G`, `QQQ`) was therefore translated into the language of whichever worker ran the transform, so the same job wrote `23 Oct 2026` on one worker and `23 Eki 2026` on another. `DAYNAME` and `MONTHNAME` were never affected, because they pin English, so the two disagreed on the same row. Both functions now pass `Locale.ENGLISH`.
+  - **Impact**: On a worker whose default locale is English, output is unchanged. On a worker with a non-English default locale, these names change from the local language to English, and are now stable across workers and environments. Patterns made only of digits and separators, such as `yyyy-MM-dd HH:mm:ss`, are unaffected, as are all patterns in `ZetaDateTimeFormat`.
+  - **Migration Guide**: No configuration change is needed. If a downstream consumer relied on localised month or weekday text from a non-English worker, translate it downstream, since that text was never reproducible across workers.
+
 ### File sink: XML applies `date_format`, `datetime_format` and `time_format`
 
 - **Behavior change: the XML writer of the file sinks formats DATE, TIME and TIMESTAMP values with the configured formats**
