@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+| [Feature][Connector-V2] Add generic JMS queue sink | - | Next |
 | [Feature][Connector-V2] Add generic JMS queue source | - | Next |
 
 </details>

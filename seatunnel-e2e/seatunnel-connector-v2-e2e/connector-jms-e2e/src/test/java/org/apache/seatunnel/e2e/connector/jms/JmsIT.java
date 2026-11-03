@@ -266,6 +266,28 @@ public class JmsIT extends TestSuiteBase implements TestResource {
                         });
     }
 
+    /**
+     * Every engine: a batch job writes every row, and the messages are committed when the job ends.
+     * With {@code max_uncommitted_messages = 3}, the ten rows are also committed in smaller
+     * transactions before the end.
+     */
+    @TestTemplate
+    public void testSinkWritesEveryRow(TestContainer container) throws Exception {
+        String queue = "sink-" + UUID.randomUUID();
+        Container.ExecResult result =
+                container.executeJob("/fake_to_jms_sink.conf", Arrays.asList("queue=" + queue));
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+
+        Assertions.assertEquals(10, messageCount(queue));
+        for (int i = 0; i < 10; i++) {
+            TextMessage message = receive(queue);
+            Assertions.assertNotNull(message, "message " + i + " is missing");
+            Assertions.assertTrue(message.getText().contains("\"id\":"), message.getText());
+            Assertions.assertTrue(message.getText().contains("\"name\":"), message.getText());
+        }
+        Assertions.assertEquals(0, messageCount(queue));
+    }
+
     private static CompletableFuture<Container.ExecResult> runAsync(
             TestContainer container, String config, String jobId, String queue) {
         return CompletableFuture.supplyAsync(

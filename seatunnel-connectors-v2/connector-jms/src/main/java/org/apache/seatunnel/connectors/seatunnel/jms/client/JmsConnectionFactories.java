@@ -77,6 +77,33 @@ public final class JmsConnectionFactories {
         return fromJndi(config);
     }
 
+    /**
+     * Rejects options of the connection factory mode that is not used, and requires the initial
+     * context factory for a JNDI lookup.
+     */
+    public static void checkFactoryOptions(ReadonlyConfig config) {
+        if (config.getOptional(CONNECTION_FACTORY_CLASS).isPresent()) {
+            if (config.getOptional(JNDI_INITIAL_CONTEXT_FACTORY).isPresent()
+                    || config.getOptional(JNDI_PROVIDER_URL).isPresent()
+                    || config.getOptional(JNDI_PROPERTIES).isPresent()) {
+                throw new IllegalArgumentException(
+                        "The jndi_* options apply only with jndi_connection_factory_name, "
+                                + "not with connection_factory_class");
+            }
+        } else {
+            if (config.getOptional(CONNECTION_FACTORY_PROPERTIES).isPresent()) {
+                throw new IllegalArgumentException(
+                        "connection_factory_properties applies only with "
+                                + "connection_factory_class");
+            }
+            if (!config.getOptional(JNDI_INITIAL_CONTEXT_FACTORY).isPresent()) {
+                throw new IllegalArgumentException(
+                        "jndi_initial_context_factory is required with "
+                                + "jndi_connection_factory_name");
+            }
+        }
+    }
+
     /** Opens a connection with the configured credentials, if any. */
     public static Connection createConnection(ConnectionFactory factory, ReadonlyConfig config)
             throws JMSException {

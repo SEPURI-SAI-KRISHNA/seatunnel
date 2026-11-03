@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jms.client.JmsConnectionFactories;
 import org.apache.seatunnel.connectors.seatunnel.jms.config.JmsSourceOptions.MessageFormat;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
@@ -112,26 +113,7 @@ public class JmsSourceFactory implements TableSourceFactory {
      */
     static void validate(ReadonlyConfig config) {
         ConfigValidator.of(config).validate(new JmsSourceFactory().optionRule());
-        if (config.getOptional(CONNECTION_FACTORY_CLASS).isPresent()) {
-            if (config.getOptional(JNDI_INITIAL_CONTEXT_FACTORY).isPresent()
-                    || config.getOptional(JNDI_PROVIDER_URL).isPresent()
-                    || config.getOptional(JNDI_PROPERTIES).isPresent()) {
-                throw new IllegalArgumentException(
-                        "The jndi_* options apply only with jndi_connection_factory_name, "
-                                + "not with connection_factory_class");
-            }
-        } else {
-            if (config.getOptional(CONNECTION_FACTORY_PROPERTIES).isPresent()) {
-                throw new IllegalArgumentException(
-                        "connection_factory_properties applies only with "
-                                + "connection_factory_class");
-            }
-            if (!config.getOptional(JNDI_INITIAL_CONTEXT_FACTORY).isPresent()) {
-                throw new IllegalArgumentException(
-                        "jndi_initial_context_factory is required with "
-                                + "jndi_connection_factory_name");
-            }
-        }
+        JmsConnectionFactories.checkFactoryOptions(config);
     }
 
     @Override

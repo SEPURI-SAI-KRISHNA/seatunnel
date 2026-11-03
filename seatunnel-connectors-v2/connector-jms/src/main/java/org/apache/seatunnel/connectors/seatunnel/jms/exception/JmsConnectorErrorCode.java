@@ -24,8 +24,9 @@ public enum JmsConnectorErrorCode implements SeaTunnelErrorCode {
     CONNECTION_FAILED("JMS-02", "JMS connection failed"),
     UNSUPPORTED_MESSAGE("JMS-03", "Unsupported JMS message"),
     DESERIALIZE_MESSAGE_FAILED("JMS-04", "Could not convert a JMS message to rows"),
-    COMMIT_FAILED("JMS-05", "Could not commit received JMS messages"),
-    CLOSE_FAILED("JMS-06", "Could not close the JMS connection");
+    COMMIT_FAILED("JMS-05", "Could not commit a JMS transaction"),
+    CLOSE_FAILED("JMS-06", "Could not close the JMS connection"),
+    SEND_FAILED("JMS-07", "Could not send a JMS message");
 
     private final String code;
     private final String description;
