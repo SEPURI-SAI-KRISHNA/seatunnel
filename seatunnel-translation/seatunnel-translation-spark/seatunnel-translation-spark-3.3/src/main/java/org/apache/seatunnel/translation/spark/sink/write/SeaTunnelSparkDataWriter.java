@@ -46,6 +46,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
     protected CommitInfoT latestCommitInfoT;
     protected long epochId;
     protected volatile MultiTableResourceManager resourceManager;
+    private boolean writerClosed;
 
     private final MultiTableManager multiTableManager;
     private final SinkWriter.Context context;
@@ -92,29 +93,55 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         SeaTunnelSparkWriterCommitMessage<CommitInfoT> seaTunnelSparkWriterCommitMessage =
                 new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
-        sinkWriter.close();
-        context.getEventListener().onEvent(new WriterCloseEvent());
-        try {
-            if (resourceManager != null) {
-                resourceManager.close();
-            }
-        } catch (Throwable e) {
-            log.error("close resourceManager error", e);
-        }
+        closeWriter();
         return seaTunnelSparkWriterCommitMessage;
     }
 
+    /**
+     * Rolls back a failed task and releases the writer, because {@link #commit()} will not run. An
+     * open writer can keep the local mode JVM alive after the job has failed. Like a close on the
+     * other engines, this can flush rows the writer still buffers.
+     */
     @Override
     public void abort() throws IOException {
-        sinkWriter.abortPrepare();
-        if (sinkCommitter != null) {
-            if (latestCommitInfoT == null) {
-                sinkCommitter.abort(Collections.emptyList());
-            } else {
-                sinkCommitter.abort(Collections.singletonList(latestCommitInfoT));
+        try {
+            sinkWriter.abortPrepare();
+            if (sinkCommitter != null) {
+                if (latestCommitInfoT == null) {
+                    sinkCommitter.abort(Collections.emptyList());
+                } else {
+                    sinkCommitter.abort(Collections.singletonList(latestCommitInfoT));
+                }
+            }
+        } finally {
+            cleanCommitInfo();
+            try {
+                closeWriter();
+            } catch (Exception e) {
+                // The task has already failed, so this must not replace the original error.
+                log.error("close sink writer error", e);
             }
         }
-        cleanCommitInfo();
+    }
+
+    /** Closes the writer at most once, as a failed close in commit is followed by an abort. */
+    private void closeWriter() throws IOException {
+        if (writerClosed) {
+            return;
+        }
+        writerClosed = true;
+        try {
+            sinkWriter.close();
+            context.getEventListener().onEvent(new WriterCloseEvent());
+        } finally {
+            try {
+                if (resourceManager != null) {
+                    resourceManager.close();
+                }
+            } catch (Throwable e) {
+                log.error("close resourceManager error", e);
+            }
+        }
     }
 
     private void cleanCommitInfo() {

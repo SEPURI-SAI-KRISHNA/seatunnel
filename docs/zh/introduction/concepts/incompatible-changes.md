@@ -4,6 +4,14 @@
 
 ## dev
 
+### Spark：失败的 Sink 任务会关闭其 Writer
+
+- **影响范围**：运行在 Spark 上、Sink 任务失败，且 Sink 会缓存数据并在 `close()` 中写出的作业。
+- **行为变化**：失败的任务现在会关闭 Sink Writer，与 Zeta 和 Flink 的行为一致。关闭时可能写出 Writer
+  仍缓存的数据，因此失败的作业可能比以前在目标中留下更多的行，重试的任务也可能再次写入这些行。此前 Writer
+  不会被关闭；在 local 模式下，如果 Writer 持有非守护线程，作业失败后 `spark-submit` 可能一直不退出。
+- **升级说明**：无需修改配置。如果 Sink 不是 upsert 写入，请在重新运行失败的作业前清理或重新加载目标数据。
+
 ### JDBC Sink：未提交数据丢失后拒绝提交
 
 - **影响范围**：开启 checkpoint 且使用手动提交连接的非 XA JDBC Sink（`auto_commit = false`，

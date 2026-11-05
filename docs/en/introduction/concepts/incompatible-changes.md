@@ -5,6 +5,17 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Spark: a failed sink task closes its writer
+
+- **Affected jobs**: jobs on Spark whose sink task fails, with a sink that buffers rows and writes
+  them in `close()`.
+- **Behavior change**: a failed task now closes the sink writer, as Zeta and Flink do. The close can
+  write rows the writer still buffers, so a failed job can leave more rows in the target than before,
+  and a retried task can write them again. Before this, the writer was left open, and in local mode
+  `spark-submit` could keep running after the job had failed if the writer held non-daemon threads.
+- **Migration**: no configuration change is required. If your sink does not upsert, clean up or
+  reload the target before you rerun a failed job.
+
 ### JDBC Sink: fail safely after losing uncommitted work
 
 - **Affected jobs**: non-XA JDBC sinks with checkpointing enabled and a manual-commit connection
